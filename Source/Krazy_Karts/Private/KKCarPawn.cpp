@@ -4,6 +4,7 @@
 #include "Components/SkeletalMeshComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Camera/CameraComponent.h"
+#include "Components/BoxComponent.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogKKCarPawn, All, All);
 
@@ -11,8 +12,11 @@ AKKCarPawn::AKKCarPawn()
 {
 	PrimaryActorTick.bCanEverTick = true;
 
+    BoxCollisionComponent = CreateDefaultSubobject<UBoxComponent>(TEXT("BoxCollisionComponent"));
+    SetRootComponent(BoxCollisionComponent);
+
 	SkeletalMeshComponent = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("SkeletalMeshComponent"));
-    SetRootComponent(SkeletalMeshComponent);
+    SkeletalMeshComponent->SetupAttachment(RootComponent);
 
 	SpringArmComponent = CreateDefaultSubobject<USpringArmComponent>(TEXT("SprintArmComponent"));
     SpringArmComponent->TargetOffset = FVector(0.0f, 0.0f, 200.0f);
@@ -52,7 +56,13 @@ void AKKCarPawn::SetNewActorPosition(float DeltaTime)
     FVector Force = GetActorForwardVector() * DrivingForce * Throttle;
     Acceleration = Force / Weight;
     Velocity = Velocity + Acceleration * DeltaTime;
-
+    
     FVector Translation = Velocity * Multiplier * DeltaTime;
-    AddActorWorldOffset(Translation);
+
+    FHitResult HitResult;
+    AddActorWorldOffset(Translation, true, &HitResult);
+    if (HitResult.IsValidBlockingHit())
+    {
+        Velocity = FVector::ZeroVector;
+    }
 }
