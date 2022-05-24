@@ -37,6 +37,7 @@ void AKKCarPawn::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 
     FVector Force = GetActorForwardVector() * DrivingForce * Throttle;
+    Force += GetResistance();
     Acceleration = Force / Weight;
     Velocity = Velocity + Acceleration * DeltaTime;
 
@@ -80,4 +81,9 @@ void AKKCarPawn::MoveForward(float Amount)
 void AKKCarPawn::MoveRight(float Amount)
 {
     SteeringThrow = Amount;
+}
+
+FVector AKKCarPawn::GetResistance()
+{
+    return -Velocity.GetSafeNormal() * Velocity.SizeSquared() * DragCoefficient;
 }

@@ -48,6 +48,9 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Rotation")
     float Degrees = 90.0f;
 
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Resistance")
+    float DragCoefficient = 16.0f;
+
 	virtual void BeginPlay() override;
 private:
     float Throttle;
@@ -58,6 +61,9 @@ private:
 
     void UpdatePositionFromVelocity(float DeltaTime);
     void UpdateRotation(float DeltaTime);
+
     void MoveForward(float Amount);
     void MoveRight(float Amount);
+
+    FVector GetResistance();
 };
