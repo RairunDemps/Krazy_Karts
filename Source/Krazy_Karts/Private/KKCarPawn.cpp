@@ -37,7 +37,9 @@ void AKKCarPawn::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 
     FVector Force = GetActorForwardVector() * DrivingForce * Throttle;
-    Force += GetResistance();
+    Force += GetAirResistance();
+    Force += GetRollingResistance();
+
     Acceleration = Force / Weight;
     Velocity = Velocity + Acceleration * DeltaTime;
 
@@ -59,8 +61,9 @@ void AKKCarPawn::UpdatePositionFromVelocity(float DeltaTime)
 
 void AKKCarPawn::UpdateRotation(float DeltaTime)
 {
-    float DegreesToRotate = Degrees * SteeringThrow * DeltaTime;
-    FQuat Rotation(GetActorUpVector(), FMath::DegreesToRadians(DegreesToRotate));
+    float DeltaLocation = FVector::DotProduct(GetActorForwardVector(), Velocity) * DeltaTime;
+    float RotationAngle = DeltaLocation / TurningRadius * SteeringThrow;
+    FQuat Rotation(GetActorUpVector(), RotationAngle);
     AddActorLocalRotation(Rotation);
     Velocity = Rotation.RotateVector(Velocity);
 }
@@ -83,7 +86,17 @@ void AKKCarPawn::MoveRight(float Amount)
     SteeringThrow = Amount;
 }
 
-FVector AKKCarPawn::GetResistance()
+FVector AKKCarPawn::GetAirResistance()
 {
     return -Velocity.GetSafeNormal() * Velocity.SizeSquared() * DragCoefficient;
+}
+
+FVector AKKCarPawn::GetRollingResistance()
+{
+    if (!GetWorld()) return FVector::ZeroVector;
+
+    float AccelerationDueToGravity = -GetWorld()->GetGravityZ() / 100.0f;
+    float NormalForce = Weight * AccelerationDueToGravity;
+
+    return -Velocity.GetSafeNormal() * RollingCoefficient * NormalForce;
 }

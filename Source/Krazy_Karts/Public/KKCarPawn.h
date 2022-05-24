@@ -43,15 +43,19 @@ protected:
     float Weight = 1000.0f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Velocity")
-    FVector DrivingForce = FVector(0.0f, 10000.0f, 0.0f);
+    float DrivingForce = 10000.0f;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Rotation")
-    float Degrees = 90.0f;
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Rotation")
+    float TurningRadius = 10.0f;
 
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Resistance")
     float DragCoefficient = 16.0f;
 
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Resistance")
+    float RollingCoefficient = 0.0015f;
+
 	virtual void BeginPlay() override;
+
 private:
     float Throttle;
     float SteeringThrow;
@@ -65,5 +69,6 @@ private:
     void MoveForward(float Amount);
     void MoveRight(float Amount);
 
-    FVector GetResistance();
+    FVector GetAirResistance();
+    FVector GetRollingResistance();
 };
