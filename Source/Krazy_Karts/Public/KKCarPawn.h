@@ -45,13 +45,19 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Velocity")
     FVector DrivingForce = FVector(0.0f, 10000.0f, 0.0f);
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Rotation")
+    float Degrees = 90.0f;
+
 	virtual void BeginPlay() override;
 private:
     float Throttle;
+    float SteeringThrow;
 
     FVector Velocity;
     FVector Acceleration;
 
+    void UpdatePositionFromVelocity(float DeltaTime);
+    void UpdateRotation(float DeltaTime);
     void MoveForward(float Amount);
-    void SetNewActorPosition(float DeltaTime);
+    void MoveRight(float Amount);
 };

@@ -36,27 +36,16 @@ void AKKCarPawn::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	SetNewActorPosition(DeltaTime);
-}
-
-void AKKCarPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
-{
-	Super::SetupPlayerInputComponent(PlayerInputComponent);
-
-	PlayerInputComponent->BindAxis("MoveForward", this, &AKKCarPawn::MoveForward);
-}
-
-void AKKCarPawn::MoveForward(float Amount)
-{
-    Throttle = Amount;
-}
-
-void AKKCarPawn::SetNewActorPosition(float DeltaTime)
-{
     FVector Force = GetActorForwardVector() * DrivingForce * Throttle;
     Acceleration = Force / Weight;
     Velocity = Velocity + Acceleration * DeltaTime;
-    
+
+    UpdateRotation(DeltaTime);
+	UpdatePositionFromVelocity(DeltaTime);
+}
+
+void AKKCarPawn::UpdatePositionFromVelocity(float DeltaTime)
+{
     FVector Translation = Velocity * Multiplier * DeltaTime;
 
     FHitResult HitResult;
@@ -65,4 +54,30 @@ void AKKCarPawn::SetNewActorPosition(float DeltaTime)
     {
         Velocity = FVector::ZeroVector;
     }
+}
+
+void AKKCarPawn::UpdateRotation(float DeltaTime)
+{
+    float DegreesToRotate = Degrees * SteeringThrow * DeltaTime;
+    FQuat Rotation(GetActorUpVector(), FMath::DegreesToRadians(DegreesToRotate));
+    AddActorLocalRotation(Rotation);
+    Velocity = Rotation.RotateVector(Velocity);
+}
+
+void AKKCarPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
+{
+	Super::SetupPlayerInputComponent(PlayerInputComponent);
+
+	PlayerInputComponent->BindAxis("MoveForward", this, &AKKCarPawn::MoveForward);
+	PlayerInputComponent->BindAxis("MoveRight", this, &AKKCarPawn::MoveRight);
+}
+
+void AKKCarPawn::MoveForward(float Amount)
+{
+    Throttle = Amount;
+}
+
+void AKKCarPawn::MoveRight(float Amount)
+{
+    SteeringThrow = Amount;
 }
