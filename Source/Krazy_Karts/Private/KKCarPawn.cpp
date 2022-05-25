@@ -7,12 +7,14 @@
 #include "Components/BoxComponent.h"
 #include "DrawDebugHelpers.h"
 #include "KKUtils.h"
+#include "Net/UnrealNetwork.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogKKCarPawn, All, All);
 
 AKKCarPawn::AKKCarPawn()
 {
 	PrimaryActorTick.bCanEverTick = true;
+    bReplicates = true;
 
     BoxCollisionComponent = CreateDefaultSubobject<UBoxComponent>(TEXT("BoxCollisionComponent"));
     SetRootComponent(BoxCollisionComponent);
@@ -47,6 +49,17 @@ void AKKCarPawn::Tick(float DeltaTime)
 
     UpdateRotation(DeltaTime);
 	UpdatePositionFromVelocity(DeltaTime);
+
+    if (HasAuthority())
+    {
+        ReplicatedLocation = GetActorLocation();
+        ReplicatedRotation = GetActorRotation();
+    }
+    else
+    {
+        SetActorLocation(ReplicatedLocation);
+        SetActorRotation(ReplicatedRotation);
+    }
 
     DrawDebugString(GetWorld(), FVector(0.0f, 0.0f, 100.0f), KKUtils::GetEnumRoleString(GetLocalRole()), this, FColor::White, DeltaTime);
 }
@@ -125,4 +138,12 @@ FVector AKKCarPawn::GetRollingResistance()
     float NormalForce = Weight * AccelerationDueToGravity;
 
     return -Velocity.GetSafeNormal() * RollingCoefficient * NormalForce;
+}
+
+void AKKCarPawn::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+    Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+    DOREPLIFETIME(AKKCarPawn, ReplicatedLocation);
+    DOREPLIFETIME(AKKCarPawn, ReplicatedRotation);
 }

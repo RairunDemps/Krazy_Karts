@@ -69,12 +69,18 @@ private:
     void MoveForward(float Amount);
     void MoveRight(float Amount);
 
+    FVector GetAirResistance();
+    FVector GetRollingResistance();
+
     UFUNCTION(Server, Reliable, WithValidation)
     void Server_MoveForward(float Amount);
 
     UFUNCTION(Server, Reliable, WithValidation)
     void Server_MoveRight(float Amount);
 
-    FVector GetAirResistance();
-    FVector GetRollingResistance();
+    UPROPERTY(Replicated)
+    FVector ReplicatedLocation;
+
+    UPROPERTY(Replicated)
+    FRotator ReplicatedRotation;
 };
