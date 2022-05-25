@@ -34,6 +34,8 @@ AKKCarPawn::AKKCarPawn()
 void AKKCarPawn::BeginPlay()
 {
 	Super::BeginPlay();
+
+    NetUpdateFrequency = 1.0f;
 }
 
 void AKKCarPawn::Tick(float DeltaTime)
@@ -52,13 +54,7 @@ void AKKCarPawn::Tick(float DeltaTime)
 
     if (HasAuthority())
     {
-        ReplicatedLocation = GetActorLocation();
-        ReplicatedRotation = GetActorRotation();
-    }
-    else
-    {
-        SetActorLocation(ReplicatedLocation);
-        SetActorRotation(ReplicatedRotation);
+        ReplicationTransform = GetActorTransform();
     }
 
     DrawDebugString(GetWorld(), FVector(0.0f, 0.0f, 100.0f), KKUtils::GetEnumRoleString(GetLocalRole()), this, FColor::White, DeltaTime);
@@ -144,6 +140,13 @@ void AKKCarPawn::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifeti
 {
     Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-    DOREPLIFETIME(AKKCarPawn, ReplicatedLocation);
-    DOREPLIFETIME(AKKCarPawn, ReplicatedRotation);
+    DOREPLIFETIME(AKKCarPawn, ReplicationTransform);
+    DOREPLIFETIME(AKKCarPawn, Velocity);
+    DOREPLIFETIME(AKKCarPawn, SteeringThrow);
+    DOREPLIFETIME(AKKCarPawn, Throttle);
+}
+
+void AKKCarPawn::Rep_ReplicatedTransform()
+{
+    SetActorTransform(ReplicationTransform);
 }

@@ -57,9 +57,12 @@ protected:
 	virtual void BeginPlay() override;
 
 private:
+    UPROPERTY(Replicated)
     float Throttle;
+    UPROPERTY(Replicated)
     float SteeringThrow;
 
+    UPROPERTY(Replicated)
     FVector Velocity;
     FVector Acceleration;
 
@@ -78,9 +81,9 @@ private:
     UFUNCTION(Server, Reliable, WithValidation)
     void Server_MoveRight(float Amount);
 
-    UPROPERTY(Replicated)
-    FVector ReplicatedLocation;
+    UPROPERTY(ReplicatedUsing = Rep_ReplicatedTransform)
+    FTransform ReplicationTransform;
 
-    UPROPERTY(Replicated)
-    FRotator ReplicatedRotation;
+    UFUNCTION()
+    void Rep_ReplicatedTransform();
 };
