@@ -5,6 +5,8 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "Camera/CameraComponent.h"
 #include "Components/BoxComponent.h"
+#include "DrawDebugHelpers.h"
+#include "KKUtils.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogKKCarPawn, All, All);
 
@@ -45,6 +47,8 @@ void AKKCarPawn::Tick(float DeltaTime)
 
     UpdateRotation(DeltaTime);
 	UpdatePositionFromVelocity(DeltaTime);
+
+    DrawDebugString(GetWorld(), FVector(0.0f, 0.0f, 100.0f), KKUtils::GetEnumRoleString(GetLocalRole()), this, FColor::White, DeltaTime);
 }
 
 void AKKCarPawn::UpdatePositionFromVelocity(float DeltaTime)
@@ -73,17 +77,39 @@ void AKKCarPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
 
 	PlayerInputComponent->BindAxis("MoveForward", this, &AKKCarPawn::MoveForward);
-	PlayerInputComponent->BindAxis("MoveRight", this, &AKKCarPawn::MoveRight);
+    PlayerInputComponent->BindAxis("MoveRight", this, &AKKCarPawn::MoveRight);
 }
 
 void AKKCarPawn::MoveForward(float Amount)
 {
     Throttle = Amount;
+    Server_MoveForward(Amount);
 }
 
 void AKKCarPawn::MoveRight(float Amount)
 {
     SteeringThrow = Amount;
+    Server_MoveRight(Amount);
+}
+
+void AKKCarPawn::Server_MoveForward_Implementation(float Amount)
+{
+    Throttle = Amount;
+}
+
+bool AKKCarPawn::Server_MoveForward_Validate(float Amount)
+{
+    return FMath::Abs(Amount) <= 1;
+}
+
+void AKKCarPawn::Server_MoveRight_Implementation(float Amount)
+{
+    SteeringThrow = Amount;
+}
+
+bool AKKCarPawn::Server_MoveRight_Validate(float Amount)
+{
+    return FMath::Abs(Amount) <= 1;
 }
 
 FVector AKKCarPawn::GetAirResistance()
