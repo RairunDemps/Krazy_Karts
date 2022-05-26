@@ -6,9 +6,8 @@
 #include "Camera/CameraComponent.h"
 #include "Components/BoxComponent.h"
 #include "DrawDebugHelpers.h"
-#include "KKUtils.h"
 #include "Net/UnrealNetwork.h"
-#include "GameFramework/GameState.h"
+#include "KKCarMovementComponent.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogKKCarPawn, All, All);
 
@@ -30,6 +29,8 @@ AKKCarPawn::AKKCarPawn()
 
 	CameraComponent = CreateDefaultSubobject<UCameraComponent>(TEXT("CameraComponent"));
     CameraComponent->SetupAttachment(SpringArmComponent, USpringArmComponent::SocketName);
+
+    CarMovementComponent = CreateDefaultSubobject<UKKCarMovementComponent>(TEXT("CarMovementComponent"));
 }
 
 void AKKCarPawn::BeginPlay()
@@ -48,24 +49,26 @@ void AKKCarPawn::Tick(float DeltaTime)
 
     if (GetLocalRole() == ROLE_AutonomousProxy)
     {
-        FCarMove Move = CreateMove(DeltaTime);
-        SimulateMove(Move);
+        FCarMove Move = CarMovementComponent->CreateMove(DeltaTime);
+        CarMovementComponent->SimulateMove(Move);
         UnacknowledgedMoves.Add(Move);
         Server_SendMove(Move);
     }
 
     if (GetLocalRole() == ROLE_Authority && IsLocallyControlled())
     {
-        FCarMove Move = CreateMove(DeltaTime);
+        FCarMove Move = CarMovementComponent->CreateMove(DeltaTime);
         Server_SendMove(Move);
     }
 
     if (GetLocalRole() == ROLE_SimulatedProxy)
     {
-        SimulateMove(ServerState.LastMove);
+        CarMovementComponent->SimulateMove(ServerState.LastMove);
     }
 
-    DrawDebugString(GetWorld(), FVector(0.0f, 0.0f, 100.0f), KKUtils::GetEnumRoleString(GetLocalRole()), this, FColor::White, DeltaTime);
+    FString RoleString;
+    UEnum::GetValueAsString(GetLocalRole(), RoleString);
+    DrawDebugString(GetWorld(), FVector(0.0f, 0.0f, 100.0f), RoleString, this, FColor::White, DeltaTime);
 }
 
 void AKKCarPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -78,12 +81,12 @@ void AKKCarPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent
 
 void AKKCarPawn::MoveForward(float Amount)
 {
-    Throttle = Amount;
+    CarMovementComponent->SetThrottle(Amount);
 }
 
 void AKKCarPawn::MoveRight(float Amount)
 {
-    SteeringThrow = Amount;
+    CarMovementComponent->SetSteeringThrow(Amount);
 }
 
 void AKKCarPawn::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -95,11 +98,11 @@ void AKKCarPawn::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifeti
 
 void AKKCarPawn::Server_SendMove_Implementation(FCarMove Move)
 {
-    SimulateMove(Move);
+    CarMovementComponent->SimulateMove(Move);
 
     ServerState.LastMove = Move;
     ServerState.Transform = GetActorTransform();
-    ServerState.Velocity = Velocity;
+    ServerState.Velocity = CarMovementComponent->GetVelocity();
 }
 
 bool AKKCarPawn::Server_SendMove_Validate(FCarMove Move)
@@ -110,42 +113,14 @@ bool AKKCarPawn::Server_SendMove_Validate(FCarMove Move)
 void AKKCarPawn::OnRep_ServerState()
 {
     SetActorTransform(ServerState.Transform);
-    Velocity = ServerState.Velocity;
+    CarMovementComponent->SetVelocity(ServerState.Velocity);
 
     ClearAcknowledgedMoves(ServerState.LastMove);
 
     for (const auto& UnacknowledgedMove : UnacknowledgedMoves)
     {
-        SimulateMove(UnacknowledgedMove);
+        CarMovementComponent->SimulateMove(UnacknowledgedMove);
     }
-}
-
-void AKKCarPawn::SimulateMove(const FCarMove& Move)
-{
-    FVector Force = GetActorForwardVector() * DrivingForce * Move.Throttle;
-    Force += GetAirResistance();
-    Force += GetRollingResistance();
-
-    FVector Acceleration = Force / Weight;
-    Velocity = Velocity + Acceleration * Move.DeltaTime;
-
-    UpdateRotation(Move.DeltaTime, Move.SteeringThrow);
-    UpdatePositionFromVelocity(Move.DeltaTime);
-}
-
-FCarMove AKKCarPawn::CreateMove(float DeltaTime)
-{
-    FCarMove Move;
-    Move.Throttle = Throttle;
-    Move.SteeringThrow = SteeringThrow;
-    Move.DeltaTime = DeltaTime;
-
-    if (GetWorld())
-    {
-        Move.Time = GetWorld()->GetGameState()->GetServerWorldTimeSeconds();
-    }
-
-    return Move;
 }
 
 void AKKCarPawn::ClearAcknowledgedMoves(FCarMove LastMove)
@@ -161,40 +136,4 @@ void AKKCarPawn::ClearAcknowledgedMoves(FCarMove LastMove)
     }
 
     UnacknowledgedMoves = CurrentUnacknowledgedMoves;
-}
-
-void AKKCarPawn::UpdatePositionFromVelocity(float DeltaTime)
-{
-    FVector Translation = Velocity * Multiplier * DeltaTime;
-
-    FHitResult HitResult;
-    AddActorWorldOffset(Translation, true, &HitResult);
-    if (HitResult.IsValidBlockingHit())
-    {
-        Velocity = FVector::ZeroVector;
-    }
-}
-
-void AKKCarPawn::UpdateRotation(float DeltaTime, float MoveSteeringThrow)
-{
-    float DeltaLocation = FVector::DotProduct(GetActorForwardVector(), Velocity) * DeltaTime;
-    float RotationAngle = DeltaLocation / TurningRadius * MoveSteeringThrow;
-    FQuat Rotation(GetActorUpVector(), RotationAngle);
-    AddActorLocalRotation(Rotation);
-    Velocity = Rotation.RotateVector(Velocity);
-}
-
-FVector AKKCarPawn::GetAirResistance()
-{
-    return -Velocity.GetSafeNormal() * Velocity.SizeSquared() * DragCoefficient;
-}
-
-FVector AKKCarPawn::GetRollingResistance()
-{
-    if (!GetWorld()) return FVector::ZeroVector;
-
-    float AccelerationDueToGravity = -GetWorld()->GetGravityZ() / 100.0f;
-    float NormalForce = Weight * AccelerationDueToGravity;
-
-    return -Velocity.GetSafeNormal() * RollingCoefficient * NormalForce;
 }
