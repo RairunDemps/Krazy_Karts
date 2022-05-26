@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Pawn.h"
+#include "KKCoreTypes.h"
 #include "KKCarPawn.generated.h"
 
 class USpringArmComponent;
@@ -57,17 +58,17 @@ protected:
 	virtual void BeginPlay() override;
 
 private:
-    UPROPERTY(Replicated)
     float Throttle;
-    UPROPERTY(Replicated)
     float SteeringThrow;
-
-    UPROPERTY(Replicated)
     FVector Velocity;
-    FVector Acceleration;
+
+    UPROPERTY(ReplicatedUsing = OnRep_ServerState)
+    FCarState ServerState;
+
+    TArray<FCarMove> UnacknowledgedMoves;
 
     void UpdatePositionFromVelocity(float DeltaTime);
-    void UpdateRotation(float DeltaTime);
+    void UpdateRotation(float DeltaTime, float MoveSteeringThrow);
 
     void MoveForward(float Amount);
     void MoveRight(float Amount);
@@ -76,14 +77,13 @@ private:
     FVector GetRollingResistance();
 
     UFUNCTION(Server, Reliable, WithValidation)
-    void Server_MoveForward(float Amount);
-
-    UFUNCTION(Server, Reliable, WithValidation)
-    void Server_MoveRight(float Amount);
-
-    UPROPERTY(ReplicatedUsing = Rep_ReplicatedTransform)
-    FTransform ReplicationTransform;
+    void Server_SendMove(FCarMove Move);
 
     UFUNCTION()
-    void Rep_ReplicatedTransform();
+    void OnRep_ServerState();
+
+    void SimulateMove(const FCarMove& Move);
+
+    FCarMove CreateMove(float DeltaTime);
+    void ClearAcknowledgedMoves(FCarMove LastMove);
 };

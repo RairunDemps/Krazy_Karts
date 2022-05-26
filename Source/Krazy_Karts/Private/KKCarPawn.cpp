@@ -8,6 +8,7 @@
 #include "DrawDebugHelpers.h"
 #include "KKUtils.h"
 #include "Net/UnrealNetwork.h"
+#include "GameFramework/GameState.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogKKCarPawn, All, All);
 
@@ -33,31 +34,133 @@ AKKCarPawn::AKKCarPawn()
 
 void AKKCarPawn::BeginPlay()
 {
-	Super::BeginPlay();
+    Super::BeginPlay();
 
-    NetUpdateFrequency = 1.0f;
+    if (HasAuthority())
+    {
+        NetUpdateFrequency = 1.0f;
+    }
 }
 
 void AKKCarPawn::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-    FVector Force = GetActorForwardVector() * DrivingForce * Throttle;
-    Force += GetAirResistance();
-    Force += GetRollingResistance();
-
-    Acceleration = Force / Weight;
-    Velocity = Velocity + Acceleration * DeltaTime;
-
-    UpdateRotation(DeltaTime);
-	UpdatePositionFromVelocity(DeltaTime);
-
-    if (HasAuthority())
+    if (GetLocalRole() == ROLE_AutonomousProxy)
     {
-        ReplicationTransform = GetActorTransform();
+        FCarMove Move = CreateMove(DeltaTime);
+        SimulateMove(Move);
+        UnacknowledgedMoves.Add(Move);
+        Server_SendMove(Move);
+    }
+
+    if (GetLocalRole() == ROLE_Authority && IsLocallyControlled())
+    {
+        FCarMove Move = CreateMove(DeltaTime);
+        Server_SendMove(Move);
+    }
+
+    if (GetLocalRole() == ROLE_SimulatedProxy)
+    {
+        SimulateMove(ServerState.LastMove);
     }
 
     DrawDebugString(GetWorld(), FVector(0.0f, 0.0f, 100.0f), KKUtils::GetEnumRoleString(GetLocalRole()), this, FColor::White, DeltaTime);
+}
+
+void AKKCarPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
+{
+    Super::SetupPlayerInputComponent(PlayerInputComponent);
+
+    PlayerInputComponent->BindAxis("MoveForward", this, &AKKCarPawn::MoveForward);
+    PlayerInputComponent->BindAxis("MoveRight", this, &AKKCarPawn::MoveRight);
+}
+
+void AKKCarPawn::MoveForward(float Amount)
+{
+    Throttle = Amount;
+}
+
+void AKKCarPawn::MoveRight(float Amount)
+{
+    SteeringThrow = Amount;
+}
+
+void AKKCarPawn::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+    Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+    DOREPLIFETIME(AKKCarPawn, ServerState);
+}
+
+void AKKCarPawn::Server_SendMove_Implementation(FCarMove Move)
+{
+    SimulateMove(Move);
+
+    ServerState.LastMove = Move;
+    ServerState.Transform = GetActorTransform();
+    ServerState.Velocity = Velocity;
+}
+
+bool AKKCarPawn::Server_SendMove_Validate(FCarMove Move)
+{
+    return true;
+}
+
+void AKKCarPawn::OnRep_ServerState()
+{
+    SetActorTransform(ServerState.Transform);
+    Velocity = ServerState.Velocity;
+
+    ClearAcknowledgedMoves(ServerState.LastMove);
+
+    for (const auto& UnacknowledgedMove : UnacknowledgedMoves)
+    {
+        SimulateMove(UnacknowledgedMove);
+    }
+}
+
+void AKKCarPawn::SimulateMove(const FCarMove& Move)
+{
+    FVector Force = GetActorForwardVector() * DrivingForce * Move.Throttle;
+    Force += GetAirResistance();
+    Force += GetRollingResistance();
+
+    FVector Acceleration = Force / Weight;
+    Velocity = Velocity + Acceleration * Move.DeltaTime;
+
+    UpdateRotation(Move.DeltaTime, Move.SteeringThrow);
+    UpdatePositionFromVelocity(Move.DeltaTime);
+}
+
+FCarMove AKKCarPawn::CreateMove(float DeltaTime)
+{
+    FCarMove Move;
+    Move.Throttle = Throttle;
+    Move.SteeringThrow = SteeringThrow;
+    Move.DeltaTime = DeltaTime;
+
+    if (GetWorld())
+    {
+        Move.Time = GetWorld()->GetGameState()->GetServerWorldTimeSeconds();
+    }
+
+    return Move;
+}
+
+void AKKCarPawn::ClearAcknowledgedMoves(FCarMove LastMove)
+{
+    TArray<FCarMove> CurrentUnacknowledgedMoves;
+
+    for (const auto& Move : UnacknowledgedMoves)
+    {
+        if (Move.Time > LastMove.Time)
+        {
+            CurrentUnacknowledgedMoves.Add(Move);
+        }
+    }
+
+    UnacknowledgedMoves = CurrentUnacknowledgedMoves;
 }
 
 void AKKCarPawn::UpdatePositionFromVelocity(float DeltaTime)
@@ -72,53 +175,13 @@ void AKKCarPawn::UpdatePositionFromVelocity(float DeltaTime)
     }
 }
 
-void AKKCarPawn::UpdateRotation(float DeltaTime)
+void AKKCarPawn::UpdateRotation(float DeltaTime, float MoveSteeringThrow)
 {
     float DeltaLocation = FVector::DotProduct(GetActorForwardVector(), Velocity) * DeltaTime;
-    float RotationAngle = DeltaLocation / TurningRadius * SteeringThrow;
+    float RotationAngle = DeltaLocation / TurningRadius * MoveSteeringThrow;
     FQuat Rotation(GetActorUpVector(), RotationAngle);
     AddActorLocalRotation(Rotation);
     Velocity = Rotation.RotateVector(Velocity);
-}
-
-void AKKCarPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
-{
-	Super::SetupPlayerInputComponent(PlayerInputComponent);
-
-	PlayerInputComponent->BindAxis("MoveForward", this, &AKKCarPawn::MoveForward);
-    PlayerInputComponent->BindAxis("MoveRight", this, &AKKCarPawn::MoveRight);
-}
-
-void AKKCarPawn::MoveForward(float Amount)
-{
-    Throttle = Amount;
-    Server_MoveForward(Amount);
-}
-
-void AKKCarPawn::MoveRight(float Amount)
-{
-    SteeringThrow = Amount;
-    Server_MoveRight(Amount);
-}
-
-void AKKCarPawn::Server_MoveForward_Implementation(float Amount)
-{
-    Throttle = Amount;
-}
-
-bool AKKCarPawn::Server_MoveForward_Validate(float Amount)
-{
-    return FMath::Abs(Amount) <= 1;
-}
-
-void AKKCarPawn::Server_MoveRight_Implementation(float Amount)
-{
-    SteeringThrow = Amount;
-}
-
-bool AKKCarPawn::Server_MoveRight_Validate(float Amount)
-{
-    return FMath::Abs(Amount) <= 1;
 }
 
 FVector AKKCarPawn::GetAirResistance()
@@ -134,19 +197,4 @@ FVector AKKCarPawn::GetRollingResistance()
     float NormalForce = Weight * AccelerationDueToGravity;
 
     return -Velocity.GetSafeNormal() * RollingCoefficient * NormalForce;
-}
-
-void AKKCarPawn::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
-{
-    Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-
-    DOREPLIFETIME(AKKCarPawn, ReplicationTransform);
-    DOREPLIFETIME(AKKCarPawn, Velocity);
-    DOREPLIFETIME(AKKCarPawn, SteeringThrow);
-    DOREPLIFETIME(AKKCarPawn, Throttle);
-}
-
-void AKKCarPawn::Rep_ReplicatedTransform()
-{
-    SetActorTransform(ReplicationTransform);
 }
