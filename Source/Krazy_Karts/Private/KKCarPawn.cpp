@@ -8,6 +8,7 @@
 #include "DrawDebugHelpers.h"
 #include "Net/UnrealNetwork.h"
 #include "KKCarMovementComponent.h"
+#include "KKMovementReplicationComponent.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogKKCarPawn, All, All);
 
@@ -31,6 +32,8 @@ AKKCarPawn::AKKCarPawn()
     CameraComponent->SetupAttachment(SpringArmComponent, USpringArmComponent::SocketName);
 
     CarMovementComponent = CreateDefaultSubobject<UKKCarMovementComponent>(TEXT("CarMovementComponent"));
+    
+    MovementReplicationComponent = CreateDefaultSubobject<UKKMovementReplicationComponent>(TEXT("MovementReplicationComponent"));
 }
 
 void AKKCarPawn::BeginPlay()
@@ -51,19 +54,20 @@ void AKKCarPawn::Tick(float DeltaTime)
     {
         FCarMove Move = CarMovementComponent->CreateMove(DeltaTime);
         CarMovementComponent->SimulateMove(Move);
-        UnacknowledgedMoves.Add(Move);
-        Server_SendMove(Move);
+        MovementReplicationComponent->AddUnacknowledgedMove(Move);
+        MovementReplicationComponent->Server_SendMove(Move);
     }
 
     if (GetLocalRole() == ROLE_Authority && IsLocallyControlled())
     {
         FCarMove Move = CarMovementComponent->CreateMove(DeltaTime);
-        Server_SendMove(Move);
+        MovementReplicationComponent->Server_SendMove(Move);
     }
 
     if (GetLocalRole() == ROLE_SimulatedProxy)
     {
-        CarMovementComponent->SimulateMove(ServerState.LastMove);
+        FCarMove LastMove = MovementReplicationComponent->GetServerState().LastMove;
+        CarMovementComponent->SimulateMove(LastMove);
     }
 
     FString RoleString;
@@ -87,53 +91,4 @@ void AKKCarPawn::MoveForward(float Amount)
 void AKKCarPawn::MoveRight(float Amount)
 {
     CarMovementComponent->SetSteeringThrow(Amount);
-}
-
-void AKKCarPawn::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
-{
-    Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-
-    DOREPLIFETIME(AKKCarPawn, ServerState);
-}
-
-void AKKCarPawn::Server_SendMove_Implementation(FCarMove Move)
-{
-    CarMovementComponent->SimulateMove(Move);
-
-    ServerState.LastMove = Move;
-    ServerState.Transform = GetActorTransform();
-    ServerState.Velocity = CarMovementComponent->GetVelocity();
-}
-
-bool AKKCarPawn::Server_SendMove_Validate(FCarMove Move)
-{
-    return true;
-}
-
-void AKKCarPawn::OnRep_ServerState()
-{
-    SetActorTransform(ServerState.Transform);
-    CarMovementComponent->SetVelocity(ServerState.Velocity);
-
-    ClearAcknowledgedMoves(ServerState.LastMove);
-
-    for (const auto& UnacknowledgedMove : UnacknowledgedMoves)
-    {
-        CarMovementComponent->SimulateMove(UnacknowledgedMove);
-    }
-}
-
-void AKKCarPawn::ClearAcknowledgedMoves(FCarMove LastMove)
-{
-    TArray<FCarMove> CurrentUnacknowledgedMoves;
-
-    for (const auto& Move : UnacknowledgedMoves)
-    {
-        if (Move.Time > LastMove.Time)
-        {
-            CurrentUnacknowledgedMoves.Add(Move);
-        }
-    }
-
-    UnacknowledgedMoves = CurrentUnacknowledgedMoves;
 }

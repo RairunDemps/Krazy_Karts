@@ -57,6 +57,4 @@ private:
 
     FVector GetAirResistance();
     FVector GetRollingResistance();
-
-    
 };

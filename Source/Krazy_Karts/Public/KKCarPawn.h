@@ -12,6 +12,7 @@ class UCameraComponent;
 class USkeletalMeshComponent;
 class UBoxComponent;
 class UKKCarMovementComponent;
+class UKKMovementReplicationComponent;
 
 UCLASS()
 class KRAZY_KARTS_API AKKCarPawn : public APawn
@@ -40,23 +41,13 @@ protected:
 
     UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Components")
     UKKCarMovementComponent* CarMovementComponent;
+    
+    UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Components")
+    UKKMovementReplicationComponent* MovementReplicationComponent;
 
 	virtual void BeginPlay() override;
 
 private:
-    UPROPERTY(ReplicatedUsing = OnRep_ServerState)
-    FCarState ServerState;
-
-    TArray<FCarMove> UnacknowledgedMoves;
-
     void MoveForward(float Amount);
     void MoveRight(float Amount);
-
-    UFUNCTION(Server, Reliable, WithValidation)
-    void Server_SendMove(FCarMove Move);
-
-    UFUNCTION()
-    void OnRep_ServerState();
-
-    void ClearAcknowledgedMoves(FCarMove LastMove);
 };
