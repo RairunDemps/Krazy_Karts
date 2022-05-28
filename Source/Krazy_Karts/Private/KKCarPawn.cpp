@@ -50,26 +50,6 @@ void AKKCarPawn::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-    if (GetLocalRole() == ROLE_AutonomousProxy)
-    {
-        FCarMove Move = CarMovementComponent->CreateMove(DeltaTime);
-        CarMovementComponent->SimulateMove(Move);
-        MovementReplicationComponent->AddUnacknowledgedMove(Move);
-        MovementReplicationComponent->Server_SendMove(Move);
-    }
-
-    if (GetLocalRole() == ROLE_Authority && IsLocallyControlled())
-    {
-        FCarMove Move = CarMovementComponent->CreateMove(DeltaTime);
-        MovementReplicationComponent->Server_SendMove(Move);
-    }
-
-    if (GetLocalRole() == ROLE_SimulatedProxy)
-    {
-        FCarMove LastMove = MovementReplicationComponent->GetServerState().LastMove;
-        CarMovementComponent->SimulateMove(LastMove);
-    }
-
     FString RoleString;
     UEnum::GetValueAsString(GetLocalRole(), RoleString);
     DrawDebugString(GetWorld(), FVector(0.0f, 0.0f, 100.0f), RoleString, this, FColor::White, DeltaTime);

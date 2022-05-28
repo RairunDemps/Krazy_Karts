@@ -22,10 +22,6 @@ public:
     UFUNCTION(Server, Reliable, WithValidation)
     void Server_SendMove(FCarMove Move);
 
-    void AddUnacknowledgedMove(const FCarMove& Move) { UnacknowledgedMoves.Add(Move); }
-
-    FCarState GetServerState() const { return ServerState; }
-
 protected:
 	virtual void BeginPlay() override;
 
@@ -40,5 +36,9 @@ private:
 
     void ClearAcknowledgedMoves(FCarMove LastMove);
 
-    UKKCarMovementComponent* GetCarMovementComponent() const;
+    UKKCarMovementComponent* CarMovementComponent;
+
+    void SetCarMovementComponent();
+
+    void UpdateServerState(FCarMove Move);
 };

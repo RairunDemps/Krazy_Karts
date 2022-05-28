@@ -17,7 +17,6 @@ public:
 
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
-    FCarMove CreateMove(float DeltaTime);
     void SimulateMove(const FCarMove& Move);
 
     void SetThrottle(float Value) { Throttle = Value; }
@@ -25,6 +24,8 @@ public:
 
     FVector GetVelocity() const { return Velocity; }
     void SetVelocity(const FVector& Vector) { Velocity = Vector; }
+
+    FCarMove GetLastMove() const { return LastMove; }
 
 protected:
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Velocity")
@@ -51,6 +52,9 @@ private:
     float Throttle;
     float SteeringThrow;
     FVector Velocity;
+    FCarMove LastMove;
+
+    FCarMove CreateMove(float DeltaTime);
 
     void UpdatePositionFromVelocity(float DeltaTime);
     void UpdateRotation(float DeltaTime, float MoveSteeringThrow);

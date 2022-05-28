@@ -16,6 +16,42 @@ void UKKCarMovementComponent::BeginPlay()
 void UKKCarMovementComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+
+    if (GetOwnerRole() == ROLE_AutonomousProxy || GetOwner()->GetRemoteRole() == ROLE_SimulatedProxy)
+    {
+        LastMove = CreateMove(DeltaTime);
+        SimulateMove(LastMove);
+    }
+}
+
+FCarMove UKKCarMovementComponent::CreateMove(float DeltaTime)
+{
+    FCarMove Move;
+    Move.Throttle = Throttle;
+    Move.SteeringThrow = SteeringThrow;
+    Move.DeltaTime = DeltaTime;
+
+    if (GetWorld())
+    {
+        Move.Time = GetWorld()->GetGameState()->GetServerWorldTimeSeconds();
+    }
+
+    return Move;
+}
+
+void UKKCarMovementComponent::SimulateMove(const FCarMove& Move)
+{
+    if (!GetOwner()) return;
+
+    FVector Force = GetOwner()->GetActorForwardVector() * DrivingForce * Move.Throttle;
+    Force += GetAirResistance();
+    Force += GetRollingResistance();
+
+    FVector Acceleration = Force / Weight;
+    Velocity = Velocity + Acceleration * Move.DeltaTime;
+
+    UpdateRotation(Move.DeltaTime, Move.SteeringThrow);
+    UpdatePositionFromVelocity(Move.DeltaTime);
 }
 
 void UKKCarMovementComponent::UpdatePositionFromVelocity(float DeltaTime)
@@ -56,34 +92,4 @@ FVector UKKCarMovementComponent::GetRollingResistance()
     float NormalForce = Weight * AccelerationDueToGravity;
 
     return -Velocity.GetSafeNormal() * RollingCoefficient * NormalForce;
-}
-
-FCarMove UKKCarMovementComponent::CreateMove(float DeltaTime)
-{
-    FCarMove Move;
-    Move.Throttle = Throttle;
-    Move.SteeringThrow = SteeringThrow;
-    Move.DeltaTime = DeltaTime;
-
-    if (GetWorld())
-    {
-        Move.Time = GetWorld()->GetGameState()->GetServerWorldTimeSeconds();
-    }
-
-    return Move;
-}
-
-void UKKCarMovementComponent::SimulateMove(const FCarMove& Move)
-{
-    if (!GetOwner()) return;
-
-    FVector Force = GetOwner()->GetActorForwardVector() * DrivingForce * Move.Throttle;
-    Force += GetAirResistance();
-    Force += GetRollingResistance();
-
-    FVector Acceleration = Force / Weight;
-    Velocity = Velocity + Acceleration * Move.DeltaTime;
-
-    UpdateRotation(Move.DeltaTime, Move.SteeringThrow);
-    UpdatePositionFromVelocity(Move.DeltaTime);
 }

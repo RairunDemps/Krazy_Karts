@@ -5,6 +5,8 @@
 #include "KKCarMovementComponent.h"
 #include "Net/UnrealNetwork.h"
 
+DEFINE_LOG_CATEGORY_STATIC(LogKKMovementReplicationComponent, All, All);
+
 UKKMovementReplicationComponent::UKKMovementReplicationComponent()
 {
 	PrimaryComponentTick.bCanEverTick = true;
@@ -15,11 +17,33 @@ UKKMovementReplicationComponent::UKKMovementReplicationComponent()
 void UKKMovementReplicationComponent::BeginPlay()
 {
 	Super::BeginPlay();
+
+    SetCarMovementComponent();
 }
 
 void UKKMovementReplicationComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+
+    if (!CarMovementComponent) return;
+
+    FCarMove LastMove = CarMovementComponent->GetLastMove();
+
+    if (GetOwnerRole() == ROLE_AutonomousProxy)
+    {
+        UnacknowledgedMoves.Add(LastMove);
+        Server_SendMove(LastMove);
+    }
+
+    if (GetOwner()->GetRemoteRole() == ROLE_SimulatedProxy)  // IsLocallyControlled())
+    {
+        UpdateServerState(LastMove);
+    }
+
+    if (GetOwnerRole() == ROLE_SimulatedProxy)
+    {
+        CarMovementComponent->SimulateMove(ServerState.LastMove);
+    }
 }
 
 void UKKMovementReplicationComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -31,14 +55,11 @@ void UKKMovementReplicationComponent::GetLifetimeReplicatedProps(TArray<FLifetim
 
 void UKKMovementReplicationComponent::Server_SendMove_Implementation(FCarMove Move)
 {
-    const auto CarMovementComponent = GetCarMovementComponent();
     if (!CarMovementComponent) return;
 
     CarMovementComponent->SimulateMove(Move);
 
-    ServerState.LastMove = Move;
-    ServerState.Transform = GetOwner()->GetActorTransform();
-    ServerState.Velocity = CarMovementComponent->GetVelocity();
+    UpdateServerState(Move);
 }
 
 bool UKKMovementReplicationComponent::Server_SendMove_Validate(FCarMove Move)
@@ -48,8 +69,10 @@ bool UKKMovementReplicationComponent::Server_SendMove_Validate(FCarMove Move)
 
 void UKKMovementReplicationComponent::OnRep_ServerState()
 {
-    const auto CarMovementComponent = GetCarMovementComponent();
     if (!CarMovementComponent) return;
+
+    FString RoleString;
+    UEnum::GetValueAsString(GetOwnerRole(), RoleString);
 
     GetOwner()->SetActorTransform(ServerState.Transform);
     CarMovementComponent->SetVelocity(ServerState.Velocity);
@@ -77,10 +100,17 @@ void UKKMovementReplicationComponent::ClearAcknowledgedMoves(FCarMove LastMove)
     UnacknowledgedMoves = CurrentUnacknowledgedMoves;
 }
 
-UKKCarMovementComponent* UKKMovementReplicationComponent::GetCarMovementComponent() const
+void UKKMovementReplicationComponent::SetCarMovementComponent()
 {
     const auto Car = GetOwner<AKKCarPawn>();
-    if (!Car) return nullptr;
+    if (!Car) return;
 
-    return Car->FindComponentByClass<UKKCarMovementComponent>();
+    CarMovementComponent = Car->FindComponentByClass<UKKCarMovementComponent>();
+}
+
+void UKKMovementReplicationComponent::UpdateServerState(FCarMove Move)
+{
+    ServerState.LastMove = Move;
+    ServerState.Transform = GetOwner()->GetActorTransform();
+    ServerState.Velocity = CarMovementComponent->GetVelocity();
 }
