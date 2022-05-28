@@ -16,6 +16,7 @@ AKKCarPawn::AKKCarPawn()
 {
 	PrimaryActorTick.bCanEverTick = true;
     bReplicates = true;
+    SetReplicatingMovement(false);
 
     BoxCollisionComponent = CreateDefaultSubobject<UBoxComponent>(TEXT("BoxCollisionComponent"));
     SetRootComponent(BoxCollisionComponent);

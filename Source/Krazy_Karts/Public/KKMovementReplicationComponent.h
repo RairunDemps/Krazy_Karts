@@ -30,15 +30,24 @@ private:
     FCarState ServerState;
 
     TArray<FCarMove> UnacknowledgedMoves;
-	
-    UFUNCTION()
-    void OnRep_ServerState();
-
-    void ClearAcknowledgedMoves(FCarMove LastMove);
 
     UKKCarMovementComponent* CarMovementComponent;
+	
+    float TimeSinceUpdate;
+    float TimeBetweenLastUpdates;
+    FVector ClientStartLocation;
+
+    UFUNCTION()
+    void OnRep_ServerState();
+    
+    void AutonomousProxy_OnRep_ServerState();
+    void SimulatedProxy_OnRep_ServerState();
+
+    void ClearAcknowledgedMoves(FCarMove LastMove);
 
     void SetCarMovementComponent();
 
     void UpdateServerState(FCarMove Move);
+
+    void ClientTick(float DeltaTime);
 };

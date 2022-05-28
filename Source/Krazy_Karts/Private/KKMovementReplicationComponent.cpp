@@ -42,7 +42,8 @@ void UKKMovementReplicationComponent::TickComponent(float DeltaTime, ELevelTick 
 
     if (GetOwnerRole() == ROLE_SimulatedProxy)
     {
-        CarMovementComponent->SimulateMove(ServerState.LastMove);
+        ClientTick(DeltaTime);
+        //CarMovementComponent->SimulateMove(ServerState.LastMove);
     }
 }
 
@@ -69,6 +70,21 @@ bool UKKMovementReplicationComponent::Server_SendMove_Validate(FCarMove Move)
 
 void UKKMovementReplicationComponent::OnRep_ServerState()
 {
+    switch (GetOwnerRole())
+    {
+        case ROLE_AutonomousProxy:
+            AutonomousProxy_OnRep_ServerState();
+            break;
+        case ROLE_SimulatedProxy:
+            SimulatedProxy_OnRep_ServerState();
+            break;
+        default:
+            break;
+    }
+}
+
+void UKKMovementReplicationComponent::AutonomousProxy_OnRep_ServerState()
+{
     if (!CarMovementComponent) return;
 
     FString RoleString;
@@ -83,6 +99,16 @@ void UKKMovementReplicationComponent::OnRep_ServerState()
     {
         CarMovementComponent->SimulateMove(UnacknowledgedMove);
     }
+}
+
+void UKKMovementReplicationComponent::SimulatedProxy_OnRep_ServerState()
+{
+    TimeBetweenLastUpdates = TimeSinceUpdate;
+    TimeSinceUpdate = 0;
+
+    if (!GetOwner()) return;
+
+    ClientStartLocation = GetOwner()->GetActorLocation();
 }
 
 void UKKMovementReplicationComponent::ClearAcknowledgedMoves(FCarMove LastMove)
@@ -113,4 +139,17 @@ void UKKMovementReplicationComponent::UpdateServerState(FCarMove Move)
     ServerState.LastMove = Move;
     ServerState.Transform = GetOwner()->GetActorTransform();
     ServerState.Velocity = CarMovementComponent->GetVelocity();
+}
+
+void UKKMovementReplicationComponent::ClientTick(float DeltaTime)
+{
+    TimeSinceUpdate += DeltaTime;
+
+    if (!GetOwner() || TimeBetweenLastUpdates < KINDA_SMALL_NUMBER) return;
+
+    FVector TargetLocation = ServerState.Transform.GetLocation();
+    float LerpRatio = TimeSinceUpdate / TimeBetweenLastUpdates;
+    FVector NextLocation = FMath::LerpStable(ClientStartLocation, TargetLocation, LerpRatio);
+    
+    GetOwner()->SetActorLocation(NextLocation);
 }
