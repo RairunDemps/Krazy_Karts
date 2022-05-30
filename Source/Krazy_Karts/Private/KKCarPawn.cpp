@@ -9,6 +9,7 @@
 #include "Net/UnrealNetwork.h"
 #include "KKCarMovementComponent.h"
 #include "KKMovementReplicationComponent.h"
+#include "Components/SceneComponent.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogKKCarPawn, All, All);
 
@@ -21,13 +22,16 @@ AKKCarPawn::AKKCarPawn()
     BoxCollisionComponent = CreateDefaultSubobject<UBoxComponent>(TEXT("BoxCollisionComponent"));
     SetRootComponent(BoxCollisionComponent);
 
+    MeshRootComponent = CreateDefaultSubobject<USceneComponent>(TEXT("MeshRootComponent"));
+    MeshRootComponent->SetupAttachment(RootComponent);
+
 	SkeletalMeshComponent = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("SkeletalMeshComponent"));
-    SkeletalMeshComponent->SetupAttachment(RootComponent);
+    SkeletalMeshComponent->SetupAttachment(MeshRootComponent);
 
 	SpringArmComponent = CreateDefaultSubobject<USpringArmComponent>(TEXT("SprintArmComponent"));
     SpringArmComponent->TargetOffset = FVector(0.0f, 0.0f, 200.0f);
     SpringArmComponent->TargetArmLength = 600.0f;
-    SpringArmComponent->SetupAttachment(RootComponent);
+    SpringArmComponent->SetupAttachment(MeshRootComponent);
 
 	CameraComponent = CreateDefaultSubobject<UCameraComponent>(TEXT("CameraComponent"));
     CameraComponent->SetupAttachment(SpringArmComponent, USpringArmComponent::SocketName);
@@ -43,7 +47,7 @@ void AKKCarPawn::BeginPlay()
 
     if (HasAuthority())
     {
-        NetUpdateFrequency = 1.0f;
+        NetUpdateFrequency = 0.5f;
     }
 }
 

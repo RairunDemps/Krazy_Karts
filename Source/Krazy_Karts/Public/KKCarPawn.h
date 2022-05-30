@@ -13,6 +13,7 @@ class USkeletalMeshComponent;
 class UBoxComponent;
 class UKKCarMovementComponent;
 class UKKMovementReplicationComponent;
+class USceneComponent;
 
 UCLASS()
 class KRAZY_KARTS_API AKKCarPawn : public APawn
@@ -26,9 +27,14 @@ public:
 
     virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
+    USceneComponent* GetMeshRootComponent() const { return MeshRootComponent; }
+
 protected:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
     UBoxComponent* BoxCollisionComponent;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+    USceneComponent* MeshRootComponent;
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
     USkeletalMeshComponent* SkeletalMeshComponent;

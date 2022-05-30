@@ -8,6 +8,7 @@
 #include "KKMovementReplicationComponent.generated.h"
 
 class UKKCarMovementComponent;
+class USceneComponent;
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class KRAZY_KARTS_API UKKMovementReplicationComponent : public UActorComponent
@@ -32,6 +33,7 @@ private:
     TArray<FCarMove> UnacknowledgedMoves;
 
     UKKCarMovementComponent* CarMovementComponent;
+    USceneComponent* MeshRootComponent;
 	
     float TimeSinceUpdate;
     float TimeBetweenLastUpdates;
@@ -46,9 +48,11 @@ private:
 
     void ClearAcknowledgedMoves(FCarMove LastMove);
 
-    void SetCarMovementComponent();
-
     void UpdateServerState(FCarMove Move);
 
     void ClientTick(float DeltaTime);
+    void InterpolateVelocity(const FHermiteCubicSpline& Spline, float LerpRatio);
+    void InterpolateLocation(const FHermiteCubicSpline& Spline, float LerpRatio);
+    void InterpolateRotation(float LerpRatio);
+    float GetVelocityToDerivative();
 };
