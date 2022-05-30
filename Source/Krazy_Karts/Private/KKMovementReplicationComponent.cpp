@@ -35,7 +35,7 @@ void UKKMovementReplicationComponent::TickComponent(float DeltaTime, ELevelTick 
         Server_SendMove(LastMove);
     }
 
-    if (GetOwner()->GetRemoteRole() == ROLE_SimulatedProxy)  // IsLocallyControlled())
+    if (GetOwner()->GetRemoteRole() == ROLE_SimulatedProxy)
     {
         UpdateServerState(LastMove);
     }
@@ -86,9 +86,6 @@ void UKKMovementReplicationComponent::AutonomousProxy_OnRep_ServerState()
 {
     if (!CarMovementComponent) return;
 
-    FString RoleString;
-    UEnum::GetValueAsString(GetOwnerRole(), RoleString);
-
     GetOwner()->SetActorTransform(ServerState.Transform);
     CarMovementComponent->SetVelocity(ServerState.Velocity);
 
@@ -105,25 +102,10 @@ void UKKMovementReplicationComponent::SimulatedProxy_OnRep_ServerState()
     TimeBetweenLastUpdates = TimeSinceUpdate;
     TimeSinceUpdate = 0;
 
-    if (!GetOwner()) return;
+    if (!GetOwner() || !CarMovementComponent) return;
 
-    ClientStartTransform = GetOwner()->GetTransform();
-}
-
-void UKKMovementReplicationComponent::ClientTick(float DeltaTime)
-{
-    TimeSinceUpdate += DeltaTime;
-
-    if (!GetOwner() || TimeBetweenLastUpdates < KINDA_SMALL_NUMBER) return;
-
-    FTransform TargetTransform = ServerState.Transform;
-    float LerpRatio = TimeSinceUpdate / TimeBetweenLastUpdates;
-
-    FVector NextLocation = FMath::LerpStable(ClientStartTransform.GetLocation(), TargetTransform.GetLocation(), LerpRatio);
-    FQuat NextRotation = FQuat::Slerp(ClientStartTransform.GetRotation(), TargetTransform.GetRotation(), LerpRatio);
-
-    GetOwner()->SetActorLocation(TargetTransform.GetLocation());
-    GetOwner()->SetActorRotation(TargetTransform.GetRotation());
+    ClientStartTransform = GetOwner()->GetActorTransform();
+    ClientStartVelocity = CarMovementComponent->GetVelocity();
 }
 
 void UKKMovementReplicationComponent::ClearAcknowledgedMoves(FCarMove LastMove)
@@ -154,4 +136,28 @@ void UKKMovementReplicationComponent::UpdateServerState(FCarMove Move)
     ServerState.LastMove = Move;
     ServerState.Transform = GetOwner()->GetActorTransform();
     ServerState.Velocity = CarMovementComponent->GetVelocity();
+}
+
+void UKKMovementReplicationComponent::ClientTick(float DeltaTime)
+{
+    TimeSinceUpdate += DeltaTime;
+
+    if (!GetOwner() || TimeBetweenLastUpdates < KINDA_SMALL_NUMBER || !CarMovementComponent) return;
+
+    FVector StartLocation = ClientStartTransform.GetLocation();
+    FVector TargetLocation = ServerState.Transform.GetLocation();
+    float LerpRatio = TimeSinceUpdate / TimeBetweenLastUpdates;
+    float VelocityToDerivative = TimeBetweenLastUpdates * 100;
+    FVector StartDerivative = ClientStartVelocity * VelocityToDerivative;
+    FVector TargetDerivative = ServerState.Velocity * VelocityToDerivative;
+
+    FVector NewDerivative = FMath::CubicInterpDerivative(StartLocation, StartDerivative, TargetLocation, TargetDerivative, LerpRatio);
+    FVector NextVelocity = NewDerivative / VelocityToDerivative;
+    CarMovementComponent->SetVelocity(NextVelocity);
+
+    FVector NextLocation = FMath::CubicInterp(StartLocation, StartDerivative, TargetLocation, TargetDerivative, LerpRatio);
+    FQuat NextRotation = FQuat::Slerp(ClientStartTransform.GetRotation(), ServerState.Transform.GetRotation(), LerpRatio);
+    
+    GetOwner()->SetActorLocation(NextLocation);
+    GetOwner()->SetActorRotation(NextRotation);
 }

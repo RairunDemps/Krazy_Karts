@@ -36,6 +36,7 @@ private:
     float TimeSinceUpdate;
     float TimeBetweenLastUpdates;
     FTransform ClientStartTransform;
+    FVector ClientStartVelocity;
 
     UFUNCTION()
     void OnRep_ServerState();
