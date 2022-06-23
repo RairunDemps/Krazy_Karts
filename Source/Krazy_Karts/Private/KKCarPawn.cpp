@@ -55,8 +55,7 @@ void AKKCarPawn::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-    FString RoleString;
-    UEnum::GetValueAsString(GetLocalRole(), RoleString);
+    const FString RoleString = UEnum::GetValueAsString(GetLocalRole());
     DrawDebugString(GetWorld(), FVector(0.0f, 0.0f, 100.0f), RoleString, this, FColor::White, DeltaTime);
 }
 

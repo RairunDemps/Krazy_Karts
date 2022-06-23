@@ -47,7 +47,7 @@ void UKKCarMovementComponent::SimulateMove(const FCarMove& Move)
     Force += GetAirResistance();
     Force += GetRollingResistance();
 
-    FVector Acceleration = Force / Weight;
+    const FVector Acceleration = Force / Weight;
     Velocity = Velocity + Acceleration * Move.DeltaTime;
 
     UpdateRotation(Move.DeltaTime, Move.SteeringThrow);
@@ -58,7 +58,7 @@ void UKKCarMovementComponent::UpdatePositionFromVelocity(float DeltaTime)
 {
     if (!GetOwner()) return;
 
-    FVector Translation = Velocity * Multiplier * DeltaTime;
+    const FVector Translation = Velocity * Multiplier * DeltaTime;
 
     FHitResult HitResult;
     GetOwner()->AddActorWorldOffset(Translation, true, &HitResult);
@@ -72,9 +72,9 @@ void UKKCarMovementComponent::UpdateRotation(float DeltaTime, float MoveSteering
 {
     if (!GetOwner()) return;
 
-    float DeltaLocation = FVector::DotProduct(GetOwner()->GetActorForwardVector(), Velocity) * DeltaTime;
-    float RotationAngle = DeltaLocation / TurningRadius * MoveSteeringThrow;
-    FQuat Rotation(GetOwner()->GetActorUpVector(), RotationAngle);
+    const float DeltaLocation = FVector::DotProduct(GetOwner()->GetActorForwardVector(), Velocity) * DeltaTime;
+    const float RotationAngle = DeltaLocation / TurningRadius * MoveSteeringThrow;
+    const FQuat Rotation(GetOwner()->GetActorUpVector(), RotationAngle);
     GetOwner()->AddActorLocalRotation(Rotation);
     Velocity = Rotation.RotateVector(Velocity);
 }
@@ -88,8 +88,8 @@ FVector UKKCarMovementComponent::GetRollingResistance()
 {
     if (!GetWorld()) return FVector::ZeroVector;
 
-    float AccelerationDueToGravity = -GetWorld()->GetGravityZ() / 100.0f;
-    float NormalForce = Weight * AccelerationDueToGravity;
+    const float AccelerationDueToGravity = -GetWorld()->GetGravityZ() / 100.0f;
+    const float NormalForce = Weight * AccelerationDueToGravity;
 
     return -Velocity.GetSafeNormal() * RollingCoefficient * NormalForce;
 }

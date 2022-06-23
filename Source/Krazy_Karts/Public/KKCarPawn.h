@@ -24,7 +24,6 @@ public:
 	AKKCarPawn();
 
 	virtual void Tick(float DeltaTime) override;
-
     virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
     USceneComponent* GetMeshRootComponent() const { return MeshRootComponent; }

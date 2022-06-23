@@ -20,7 +20,7 @@ void UKKMovementReplicationComponent::BeginPlay()
 {
     Super::BeginPlay();
 
-    const auto Car = GetOwner<AKKCarPawn>();
+    AKKCarPawn* const Car = GetOwner<AKKCarPawn>();
     if (!Car) return;
 
     CarMovementComponent = Car->FindComponentByClass<UKKCarMovementComponent>();
@@ -33,7 +33,7 @@ void UKKMovementReplicationComponent::TickComponent(float DeltaTime, ELevelTick 
 
     if (!CarMovementComponent) return;
 
-    FCarMove LastMove = CarMovementComponent->GetLastMove();
+    const FCarMove LastMove = CarMovementComponent->GetLastMove();
     if (GetOwnerRole() == ROLE_AutonomousProxy)
     {
         UnacknowledgedMoves.Add(LastMove);
@@ -88,7 +88,7 @@ void UKKMovementReplicationComponent::AutonomousProxy_OnRep_ServerState()
     GetOwner()->SetActorTransform(ServerState.Transform);
     CarMovementComponent->SetVelocity(ServerState.Velocity);
     ClearAcknowledgedMoves(ServerState.LastMove);
-    for (const auto& UnacknowledgedMove : UnacknowledgedMoves)
+    for (const FCarMove& UnacknowledgedMove : UnacknowledgedMoves)
     {
         CarMovementComponent->SimulateMove(UnacknowledgedMove);
     }
@@ -110,8 +110,7 @@ void UKKMovementReplicationComponent::SimulatedProxy_OnRep_ServerState()
 void UKKMovementReplicationComponent::ClearAcknowledgedMoves(FCarMove LastMove)
 {
     TArray<FCarMove> CurrentUnacknowledgedMoves;
-
-    for (const auto& Move : UnacknowledgedMoves)
+    for (const FCarMove& Move : UnacknowledgedMoves)
     {
         if (Move.Time > LastMove.Time)
         {
@@ -133,13 +132,11 @@ void UKKMovementReplicationComponent::ClientTick(float DeltaTime)
     TimeSinceUpdate += DeltaTime;
     if (TimeBetweenLastUpdates < KINDA_SMALL_NUMBER) return;
 
-    float LerpRatio = TimeSinceUpdate / TimeBetweenLastUpdates;
-
+    const float LerpRatio = TimeSinceUpdate / TimeBetweenLastUpdates;
     FHermiteCubicSpline Spline = FHermiteCubicSpline(ClientStartTransform.GetLocation(),  //
         ClientStartVelocity * GetVelocityToDerivative(),                                  //
         ServerState.Transform.GetLocation(),                                              //
         ServerState.Velocity * GetVelocityToDerivative());                                //
-
     InterpolateVelocity(Spline, LerpRatio);
     InterpolateLocation(Spline, LerpRatio);
     InterpolateRotation(LerpRatio);
@@ -154,8 +151,8 @@ void UKKMovementReplicationComponent::InterpolateVelocity(const FHermiteCubicSpl
 {
     if (!CarMovementComponent) return;
 
-    FVector NewDerivative = Spline.GetInterpolateDerivative(LerpRatio);
-    FVector NextVelocity = NewDerivative / GetVelocityToDerivative();
+    const FVector NewDerivative = Spline.GetInterpolateDerivative(LerpRatio);
+    const FVector NextVelocity = NewDerivative / GetVelocityToDerivative();
     CarMovementComponent->SetVelocity(NextVelocity);
 }
 
@@ -163,7 +160,7 @@ void UKKMovementReplicationComponent::InterpolateLocation(const FHermiteCubicSpl
 {
     if (!MeshRootComponent) return;
 
-    FVector NextLocation = Spline.GetInterpolateLocation(LerpRatio);
+    const FVector NextLocation = Spline.GetInterpolateLocation(LerpRatio);
     MeshRootComponent->SetWorldLocation(NextLocation);
 }
 
@@ -171,6 +168,6 @@ void UKKMovementReplicationComponent::InterpolateRotation(float LerpRatio)
 {
     if (!MeshRootComponent) return;
 
-    FQuat NextRotation = FQuat::Slerp(ClientStartTransform.GetRotation(), ServerState.Transform.GetRotation(), LerpRatio);
+    const FQuat NextRotation = FQuat::Slerp(ClientStartTransform.GetRotation(), ServerState.Transform.GetRotation(), LerpRatio);
     MeshRootComponent->SetWorldRotation(NextRotation);
 }
