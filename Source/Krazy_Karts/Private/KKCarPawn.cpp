@@ -29,7 +29,7 @@ AKKCarPawn::AKKCarPawn()
     SkeletalMeshComponent->SetupAttachment(MeshRootComponent);
 
 	SpringArmComponent = CreateDefaultSubobject<USpringArmComponent>(TEXT("SprintArmComponent"));
-    SpringArmComponent->TargetOffset = FVector(0.0f, 0.0f, 200.0f);
+    SpringArmComponent->TargetOffset = FVector(0.0f, 0.0f, 100.0f);
     SpringArmComponent->TargetArmLength = 600.0f;
     SpringArmComponent->SetupAttachment(MeshRootComponent);
 
@@ -47,7 +47,7 @@ void AKKCarPawn::BeginPlay()
 
     if (HasAuthority())
     {
-        NetUpdateFrequency = 0.5f;
+        NetUpdateFrequency = 1.0f;
     }
 }
 

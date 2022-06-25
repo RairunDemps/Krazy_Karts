@@ -4,15 +4,19 @@
 <h1 align="center">Krazy Karts</h1>
 
 <h2>Overview</h2>
-Project for practicing techniques of state synchronisation and interpolation between server and client using replication. Based on Vehicle template, but car was overwritten from scratch with simplified movement.
+Project for practicing techniques of state synchronisation, movement prediction and interpolation between server and client using replication. Based on Vehicle template, but car pawn was overwritten from scratch with simplified movement.
 
 <h2>Prerequisites</h2>
 <ul>
 	<li>Unreal Engine 4.27.2
 </ul>
 
-<h2>[WIP]Demonstration</h2>
-
+<h2>Demonstration</h2>
+YouTube <a href="https://youtu.be/iHyT1ImCidM">video</a> with full resolution and quality
+<p></p>
+<p align="center">
+	<img src="Images/Demonstration.gif" alt="Demonstration">
+</p>
 <h2>Controls</h2>
 <ul>
 	<li>W - move forward
